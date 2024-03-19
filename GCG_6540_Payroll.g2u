@@ -1,0 +1,145 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+Function.Intrinsic.UI.UsePixels ' Allows you to use Pixels instead of Twips throughout
+
+
+'48630 PRECLOCIN
+'50722 CLOCKOUT
+
+v.Local.sName.Declare
+v.local.sShift.Declare
+v.local.bRet.Declare
+V.Local.sFolder.Declare
+v.local.sFilname.Declare
+V.Local.sTitles.Declare
+V.Local.iWidths.Declare
+V.Local.sRet.Declare
+V.Local.ssql.Declare
+
+f.Intrinsic.Control.If(v.Caller.Hook,=,48630)
+''PRECLOCIN
+''	Variable.Passed.EmployeeName.Set("RANJIT")
+''	f.Intrinsic.String.Build("{0} - RANJIT",Variable.Passed.EmployeeName,v.Local.sName)
+''	Variable.Passed.EmployeeName.Set(v.Local.sName)
+'	
+''	f.Intrinsic.String.Build("select shift,Dept from V_LUNCH_SHIFT order by Shift",v.Screen.frmJEntry!txtBillto.MetaData0,v.Local.ssql)
+'	F.ODBC.Connection!conx.OpenCompanyConnection(300)
+'	f.Intrinsic.UI.SetBrowserOOT(True)
+'	F.Intrinsic.UI.SetBrowserHotTypeAhead(True)
+'	v.Local.ssql.Set("select shift,Dept from V_LUNCH_SHIFT order by Shift")
+'	F.Intrinsic.String.Split("NAME*!*PHONE1","*!*",V.Local.sTitles)
+'	F.Intrinsic.String.Split("800*!*800","*!*",V.Local.iWidths)
+'	f.Intrinsic.Control.Label("LBL1")
+'	F.Intrinsic.UI.Browser("Select","conx",V.Local.ssql,V.Local.sTitles,V.Local.iWidths,V.Local.sRet)
+'	
+'	F.Intrinsic.Control.If(V.Local.sRet,<>,"***CANCEL***")
+'		F.Intrinsic.String.Split(V.Local.sRet,"*!*",V.Local.sRet)
+'	f.Intrinsic.Control.Else
+'		f.Intrinsic.Control.GoTo("LBL1")
+'	f.Intrinsic.Control.EndIf
+
+	f.Intrinsic.Control.CallSub(ReadBrowser)
+	F.ODBC.Connection!conx.OpenCompanyConnection(300)
+	f.Intrinsic.String.Build("select Shift from EMPLOYEE_MSTR where employee = '{0}'",Variable.Passed.Employee.Trim,v.Local.ssql)
+	F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+	f.Intrinsic.Control.if(V.ODBC.conx!rst.EOF,=,False)
+		v.local.sShift.Set(V.ODBC.conx!rst.FieldValtrim!Shift)
+	f.Intrinsic.Control.EndIf
+	F.ODBC.conx!rst.Close
+	
+	f.Intrinsic.String.Build("update EMPLOYEE_MSTR set Shift = '{0}' where EMPLOYEE = '{1}'",V.Local.sRet(0).Trim,Variable.Passed.Employee.Trim,v.Local.ssql)
+	f.ODBC.Connection!conx.Execute(v.Local.ssql)
+	
+	f.Intrinsic.String.Build("update EMPLOYEE_SHIFT set Shift = '{0}' where EMPLOYEE = '{1}'",V.Local.sRet(0).Trim,Variable.Passed.Employee.Trim,v.Local.ssql)
+	f.ODBC.Connection!conx.Execute(v.Local.ssql)
+	
+	F.ODBC.Connection!conx.Close
+	F.Intrinsic.String.Build("{0}\Custom\6540",V.Caller.GlobalDir,V.Local.sFolder)
+	f.Intrinsic.File.DirExists(V.Local.sFolder,v.local.bRet)
+	f.Intrinsic.Control.If(v.local.bRet,=,False)
+		f.Intrinsic.File.CreateDir(V.Local.sFolder)
+	f.Intrinsic.Control.EndIf 
+
+	
+	f.Intrinsic.String.Build("{0}\{1}.new",V.Local.sFolder,Variable.Passed.Employee.Trim,v.local.sFilname)
+	F.Intrinsic.File.String2File(V.local.sFilname,v.local.sShift)
+
+f.Intrinsic.Control.elseIf(v.Caller.Hook,=,50722)
+'CLOCKOUT
+	f.Intrinsic.Control.If(Variable.Passed.Clocking_Out_Employee.Trim,<>,"")
+		F.Intrinsic.String.Build("{0}\Custom\6540\{1}.new",V.Caller.GlobalDir,Variable.Passed.Clocking_Out_Employee.Trim,V.Local.sFilname)
+		f.Intrinsic.File.exists(V.Local.sFilname,v.local.bRet)
+		f.Intrinsic.Control.If(v.local.bRet,=,False)
+			f.Intrinsic.UI.Msgbox("Shift not found to update")
+			f.Intrinsic.Control.ExitSub
+		f.Intrinsic.Control.EndIf 
+	f.Intrinsic.Control.EndIf 
+	F.Intrinsic.File.File2String(V.local.sFilname,v.local.sShift)
+'	f.Intrinsic.UI.Msgbox(v.local.sShift)
+	F.ODBC.Connection!conx.OpenCompanyConnection(300)
+	f.Intrinsic.String.Build("update EMPLOYEE_MSTR set Shift = '{0}' where EMPLOYEE = '{1}'",v.local.sShift,Variable.Passed.Clocking_Out_Employee.Trim,v.Local.ssql)
+	f.ODBC.Connection!conx.Execute(v.Local.ssql)
+	f.Intrinsic.String.Build("update EMPLOYEE_SHIFT set Shift = '{0}' where EMPLOYEE = '{1}'",v.local.sShift,Variable.Passed.Clocking_Out_Employee.Trim,v.Local.ssql)
+	f.ODBC.Connection!conx.Execute(v.Local.ssql)
+	
+	F.ODBC.Connection!conx.Close
+	f.Intrinsic.File.DeleteFile(V.local.sFilname)
+f.Intrinsic.Control.endif
+Program.Sub.Main.End
+
+Program.Sub.ReadBrowser.Start
+f.Intrinsic.Control.Try
+v.local.sFilname.Declare
+V.Local.bRet.Declare
+V.Local.sRet.Declare
+V.Local.sRet1.Declare
+V.Local.sFilter.Declare
+
+f.Intrinsic.String.Build("{0}\Custom\6453\GCG_6453_Data.cfg",v.Caller.GlobalDir,v.local.sFilname)
+F.Intrinsic.File.Exists(V.Local.sFilname,V.Local.bRet)
+	f.Intrinsic.Control.If(V.Local.bRet,=,True)
+
+		f.Intrinsic.File.File2String(V.Local.sFilname,V.Local.sRet)
+		
+		F.Data.DataTable.CreateFromString("DTConfig",V.Local.sRet,"Type*!*Value*!*Value1","string*!*string*!*string","|",v.Ambient.NewLine,true)
+		f.Data.DataView.Create("DTConfig","DVConfig")	
+		
+		V.Local.sFilter.Set("Type='SHIFT'")
+		f.Data.DataView.SetFilter("DTConfig","DVConfig",V.Local.sFilter)	
+
+		f.Data.DataView.ToString("DTConfig","DVConfig","Value*!*Value1","*!*","@!@",V.Local.sRet)
+
+		F.Intrinsic.UI.SetBrowserHotTypeAhead(True)
+		f.Intrinsic.UI.SetBrowserOOT(True)
+		f.Intrinsic.Control.Label("LBL1")
+		F.Intrinsic.UI.BrowserFromString("Select Shift",V.Local.sRet,"*!*","@!@","Shift*!*Description","100*!*800",v.Local.sRet1)
+
+		F.Intrinsic.Control.If(V.Local.sRet1,<>,"***CANCEL***")
+			F.Intrinsic.String.Split(V.Local.sRet1,"*!*",V.Local.sRet1)
+			f.Intrinsic.UI.Msgbox(V.Local.sRet1)
+		f.Intrinsic.Control.Else
+			f.Intrinsic.Control.GoTo("LBL1")
+		f.Intrinsic.Control.endif		
+		
+	f.Intrinsic.Control.endif
+f.Intrinsic.Control.Catch
+	f.Intrinsic.Control.CallSub(ErrorMsg, CurrentSub, v.Ambient.CurrentSubroutine)
+	f.Intrinsic.Control.EndTry
+Program.Sub.ReadBrowser.End
+
+Program.Sub.ErrorMsg.Start
+
+v.Local.sError.Declare
+
+f.Intrinsic.String.Build("Project GCG_6540_Payroll.g2u {0}{0}Subroutine: {1}{0}Error: {2} with Description: {3}", v.Ambient.NewLine, v.Args.CurrentSub, v.Ambient.ErrorNumber, v.Ambient.ErrorDescription, v.Local.sError)
+
+f.Intrinsic.UI.Msgbox(v.Local.sError)
+
+Program.Sub.ErrorMsg.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$rnair$}$20220202090225018$}$JUGEdtlNdgRUPvge2DQ26cJ2Nib0UUk8B93KZmoCOpWC/Rs3YQBk7nWybH/qsNxPAqkWFec6ofw=
+Program.Sub.Comments.End
